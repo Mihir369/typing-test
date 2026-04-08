@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SwiftKeys — Typing Test</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<!-- Firebase v9 compat -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d0f;--surface:#141418;--surface2:#1c1c22;--surface3:#242430;
+  --border:#2c2c38;--border2:#3a3a4a;
+  --accent:#e8ff5a;--accent-dim:rgba(232,255,90,0.12);
+  --accent2:#5af0e8;--accent2-dim:rgba(90,240,232,0.1);
+  --text:#f0f0f5;--text2:#9090a8;--text3:#55556a;
+  --correct:#5af0e8;--wrong:#ff5a7a;--cursor:#e8ff5a;
+  --font-mono:'Space Mono',monospace;--font-sans:'DM Sans',sans-serif;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+/* ── NAV ── */
+nav{display:flex;align-items:center;justify-content:space-between;padding:0 48px;height:64px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;background:rgba(13,13,15,0.92);backdrop-filter:blur(16px)}
+.logo{font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:2px;cursor:pointer}
+.logo-accent{color:var(--accent)}
+.logo-dot{width:6px;height:6px;background:var(--accent);border-radius:50%;margin-left:3px;animation:dotPulse 2s ease-in-out infinite}
+@keyframes dotPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
+.nav-center{display:flex;align-items:center;gap:4px}
+.nav-link{background:transparent;border:none;color:var(--text3);padding:6px 16px;border-radius:8px;font-size:13.5px;font-family:var(--font-sans);cursor:pointer;transition:color 0.2s,background 0.2s}
+.nav-link:hover{color:var(--text2);background:var(--surface2)}
+.nav-link.active{color:var(--text);background:var(--surface2)}
+.nav-right{display:flex;align-items:center;gap:10px}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2);padding:7px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-sans);transition:all 0.2s}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text)}
+.btn-primary{background:var(--accent);border:none;color:#0a0a0c;padding:7px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-sans);font-weight:600;transition:all 0.2s}
+.btn-primary:hover{background:#d9ee4a;transform:translateY(-1px)}
+.user-pill{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);padding:5px 14px 5px 8px;border-radius:20px;cursor:pointer;transition:border-color 0.2s}
+.user-pill:hover{border-color:var(--border2)}
+.user-avatar{width:26px;height:26px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#0a0a0c;font-family:var(--font-mono)}
+.user-name{font-size:13px;color:var(--text2);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn-logout{background:transparent;border:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:var(--font-sans);padding:4px 8px;border-radius:6px;transition:all 0.2s}
+.btn-logout:hover{color:var(--wrong);background:rgba(255,90,122,0.08)}
+
+/* ── PAGES ── */
+.page{display:none;max-width:860px;margin:0 auto;padding:56px 24px 80px;animation:fadeUp 0.3s ease}
+.page.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.page-title{font-size:24px;font-weight:600;margin-bottom:6px}
+.page-sub{font-size:14px;color:var(--text3);margin-bottom:36px}
+
+/* ── MODE BAR ── */
+.mode-bar{display:flex;align-items:center;gap:6px;margin-bottom:44px;flex-wrap:wrap}
+.mode-separator{width:1px;height:18px;background:var(--border);margin:0 4px}
+.mode-chip{background:transparent;border:none;color:var(--text3);padding:6px 14px;border-radius:20px;font-size:13px;font-family:var(--font-sans);cursor:pointer;transition:all 0.18s;display:flex;align-items:center;gap:6px}
+.mode-chip svg{width:13px;height:13px;opacity:0.6}
+.mode-chip:hover{color:var(--text2)}
+.mode-chip.active{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.mode-chip.time-chip.active{color:var(--accent)}
+
+/* ── LIVE STATS ── */
+.live-stats{display:flex;align-items:flex-end;gap:36px;margin-bottom:20px;min-height:56px}
+.live-stat{display:flex;flex-direction:column}
+.live-val{font-family:var(--font-mono);font-size:34px;font-weight:700;line-height:1;color:var(--accent);transition:color 0.3s}
+.live-val.neutral{color:var(--text2)}
+.live-val.danger{color:var(--wrong);animation:timerPulse 0.6s ease-in-out infinite alternate}
+@keyframes timerPulse{from{opacity:1}to{opacity:0.4}}
+.live-lbl{font-size:10px;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-top:5px;font-family:var(--font-mono)}
+.live-stat-timer .live-val{color:var(--text)}
+
+/* ── TYPING ── */
+.typing-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 36px 32px;position:relative;cursor:text;transition:border-color 0.25s;margin-bottom:18px}
+.typing-box.focused{border-color:rgba(232,255,90,0.25)}
+.typing-box.finished{border-color:rgba(90,240,232,0.2)}
+.words-viewport{overflow:hidden;height:calc(1.85em * 3 + 4px);position:relative}
+.words-track{font-family:var(--font-mono);font-size:20px;line-height:1.85;letter-spacing:0.03em;transition:margin-top 0.12s ease;user-select:none}
+.word{display:inline-block;margin-right:0.5em;position:relative}
+.word.wrong-word::after{content:'';position:absolute;bottom:2px;left:0;right:0;height:2px;background:var(--wrong);border-radius:1px;opacity:0.5}
+.letter{display:inline-block;color:var(--text3);transition:color 0.06s}
+.letter.correct{color:var(--correct)}
+.letter.wrong{color:var(--wrong);text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(255,90,122,0.5)}
+.letter.extra{color:var(--wrong);opacity:0.65;font-style:italic}
+.caret{display:inline-block;width:2px;height:1.1em;background:var(--cursor);vertical-align:middle;border-radius:1px;margin-left:1px;position:relative;top:1px;animation:caretBlink 1s steps(1) infinite;box-shadow:0 0 6px rgba(232,255,90,0.6)}
+.caret.typing{animation:none;opacity:1}
+@keyframes caretBlink{0%,100%{opacity:1}50%{opacity:0}}
+.hidden-input{position:absolute;opacity:0;width:1px;height:1px;top:0;left:0;pointer-events:none;z-index:-1}
+.hints{display:flex;align-items:center;gap:16px;justify-content:center}
+.hint-text{font-size:12px;color:var(--text3);display:flex;align-items:center;gap:6px}
+kbd{background:var(--surface2);border:1px solid var(--border2);color:var(--text2);padding:2px 7px;border-radius:5px;font-family:var(--font-mono);font-size:10px}
+
+/* ── RESULTS ── */
+.results{display:none}
+.results.visible{display:block;animation:fadeUp 0.4s ease}
+.result-top{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.result-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px 24px 20px;transition:border-color 0.2s}
+.result-card:hover{border-color:var(--border2)}
+.result-card.accent{border-color:rgba(232,255,90,0.2);background:rgba(232,255,90,0.03)}
+.result-card.accent2{border-color:rgba(90,240,232,0.2);background:rgba(90,240,232,0.03)}
+.rc-label{font-size:10px;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;font-family:var(--font-mono);margin-bottom:10px}
+.rc-value{font-family:var(--font-mono);font-size:44px;font-weight:700;line-height:1;color:var(--accent)}
+.result-card.accent2 .rc-value{color:var(--accent2)}
+.result-card:not(.accent):not(.accent2) .rc-value{color:var(--text2);font-size:34px}
+.rc-sub{font-size:12px;color:var(--text3);margin-top:6px}
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px 22px 18px}
+.chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.chart-title-text{font-size:10px;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;font-family:var(--font-mono)}
+.chart-badge{font-family:var(--font-mono);font-size:11px;padding:2px 8px;border-radius:4px}
+.chart-badge.wpm{background:var(--accent-dim);color:var(--accent)}
+.chart-badge.acc{background:var(--accent2-dim);color:var(--accent2)}
+.chart-wrap{position:relative;height:170px}
+.results-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.result-meta{display:flex;gap:20px;flex-wrap:wrap}
+.meta-item{font-size:12px;color:var(--text3)}
+.meta-item strong{color:var(--text2);font-weight:500}
+.btn-restart{display:flex;align-items:center;gap:9px;background:var(--accent);border:none;color:#0a0a0c;padding:11px 28px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font-sans);transition:all 0.2s}
+.btn-restart:hover{background:#d9ee4a;transform:translateY(-1px);box-shadow:0 4px 20px rgba(232,255,90,0.2)}
+.btn-restart svg{width:15px;height:15px}
+
+/* ── PRACTICE PAGE ── */
+.practice-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px}
+.practice-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;cursor:pointer;transition:all 0.2s;text-align:left}
+.practice-card:hover{border-color:var(--border2);transform:translateY(-2px);background:var(--surface2)}
+.practice-card.selected{border-color:var(--accent);background:var(--accent-dim)}
+.pc-icon{font-size:24px;margin-bottom:12px}
+.pc-title{font-size:15px;font-weight:600;margin-bottom:6px;color:var(--text)}
+.pc-desc{font-size:12px;color:var(--text3);line-height:1.5}
+.pc-badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;margin-top:10px;font-family:var(--font-mono)}
+.pc-badge.easy{background:rgba(90,240,232,0.1);color:var(--accent2)}
+.pc-badge.medium{background:rgba(232,255,90,0.1);color:var(--accent)}
+.pc-badge.hard{background:rgba(255,90,122,0.1);color:var(--wrong)}
+.practice-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 32px;margin-bottom:16px}
+.practice-prompt{font-size:14px;color:var(--text3);margin-bottom:16px;font-family:var(--font-mono)}
+.practice-input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:14px 16px;border-radius:10px;font-size:16px;font-family:var(--font-mono);outline:none;transition:border-color 0.2s;resize:none}
+.practice-input:focus{border-color:var(--accent)}
+.practice-stats-row{display:flex;gap:16px;flex-wrap:wrap}
+.pstat{background:var(--surface2);border-radius:10px;padding:14px 20px}
+.pstat-val{font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--accent)}
+.pstat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-top:3px;font-family:var(--font-mono)}
+
+/* ── LEADERBOARD ── */
+.lb-filters{display:flex;gap:8px;margin-bottom:28px;flex-wrap:wrap}
+.lb-filter{background:transparent;border:1px solid var(--border);color:var(--text3);padding:6px 16px;border-radius:20px;font-size:13px;font-family:var(--font-sans);cursor:pointer;transition:all 0.2s}
+.lb-filter.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.lb-table{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.lb-header{display:grid;grid-template-columns:60px 1fr 120px 120px 100px;gap:0;padding:14px 24px;border-bottom:1px solid var(--border);font-size:10px;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;font-family:var(--font-mono)}
+.lb-row{display:grid;grid-template-columns:60px 1fr 120px 120px 100px;gap:0;padding:16px 24px;border-bottom:1px solid var(--border);transition:background 0.15s;align-items:center}
+.lb-row:last-child{border-bottom:none}
+.lb-row:hover{background:var(--surface2)}
+.lb-row.me{background:var(--accent-dim);border-left:2px solid var(--accent)}
+.lb-rank{font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--text3)}
+.lb-rank.gold{color:#ffd700}
+.lb-rank.silver{color:#c0c0c0}
+.lb-rank.bronze{color:#cd7f32}
+.lb-user{display:flex;align-items:center;gap:10px}
+.lb-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:var(--font-mono)}
+.lb-uname{font-size:14px;font-weight:500}
+.lb-you{font-size:10px;background:var(--accent-dim);color:var(--accent);padding:1px 6px;border-radius:4px;font-family:var(--font-mono);margin-left:6px}
+.lb-wpm{font-family:var(--font-mono);font-size:16px;font-weight:700;color:var(--accent)}
+.lb-acc{font-family:var(--font-mono);font-size:14px;color:var(--accent2)}
+.lb-tests{font-size:13px;color:var(--text3)}
+.lb-empty{padding:48px;text-align:center;color:var(--text3);font-size:14px}
+
+/* ── PROFILE ── */
+.profile-header{display:flex;align-items:center;gap:28px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;margin-bottom:24px}
+.profile-avatar-big{width:72px;height:72px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:#0a0a0c;font-family:var(--font-mono);flex-shrink:0}
+.profile-info{flex:1}
+.profile-name{font-size:22px;font-weight:600;margin-bottom:4px}
+.profile-email{font-size:13px;color:var(--text3);margin-bottom:8px}
+.profile-joined{font-size:12px;color:var(--text3);font-family:var(--font-mono)}
+.profile-badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.badge{font-size:11px;padding:3px 10px;border-radius:10px;font-family:var(--font-mono)}
+.badge.gold{background:rgba(255,215,0,0.12);color:#ffd700;border:1px solid rgba(255,215,0,0.2)}
+.badge.teal{background:var(--accent2-dim);color:var(--accent2);border:1px solid rgba(90,240,232,0.2)}
+.badge.green{background:rgba(90,200,100,0.1);color:#5ac864;border:1px solid rgba(90,200,100,0.2)}
+.profile-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.profile-stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 22px}
+.psc-val{font-family:var(--font-mono);font-size:28px;font-weight:700;color:var(--accent);line-height:1}
+.psc-lbl{font-size:11px;color:var(--text3);margin-top:6px;text-transform:uppercase;letter-spacing:0.5px}
+.history-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:24px}
+.section-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.section-title{font-size:14px;font-weight:600}
+.history-row{display:grid;grid-template-columns:1fr 100px 100px 80px 140px;gap:0;padding:14px 24px;border-bottom:1px solid var(--border);align-items:center;font-size:13px}
+.history-row:last-child{border-bottom:none}
+.history-row:hover{background:var(--surface2)}
+.history-mode{color:var(--text3);font-family:var(--font-mono);font-size:12px}
+.history-wpm{font-family:var(--font-mono);font-weight:700;color:var(--accent)}
+.history-acc{font-family:var(--font-mono);color:var(--accent2)}
+.history-err{color:var(--wrong);font-family:var(--font-mono)}
+.history-date{font-size:11px;color:var(--text3)}
+.empty-state{padding:60px;text-align:center;color:var(--text3)}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:0.3}
+.empty-text{font-size:14px}
+.profile-chart-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:24px}
+.logout-btn-big{background:rgba(255,90,122,0.08);border:1px solid rgba(255,90,122,0.2);color:var(--wrong);padding:10px 22px;border-radius:9px;font-size:14px;cursor:pointer;font-family:var(--font-sans);transition:all 0.2s}
+.logout-btn-big:hover{background:rgba(255,90,122,0.14)}
+.no-auth-banner{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:48px;text-align:center}
+.no-auth-banner h3{font-size:20px;font-weight:600;margin-bottom:8px}
+.no-auth-banner p{color:var(--text3);font-size:14px;margin-bottom:24px}
+
+/* ── MODAL ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:18px;padding:36px;width:400px;max-width:calc(100vw - 32px);position:relative;animation:fadeUp 0.25s ease}
+.modal-close{position:absolute;top:14px;right:16px;background:transparent;border:none;color:var(--text3);font-size:18px;cursor:pointer;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
+.modal-close:hover{background:var(--surface2);color:var(--text2)}
+.modal-logo{font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--accent);margin-bottom:20px;display:flex;align-items:center;gap:6px}
+.modal-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:26px}
+.modal-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text3);padding:10px 18px 12px;font-size:14px;font-family:var(--font-sans);cursor:pointer;margin-bottom:-1px;transition:all 0.2s}
+.modal-tab:hover{color:var(--text2)}
+.modal-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:500}
+.field-group{margin-bottom:16px}
+.field-label{display:block;font-size:11px;color:var(--text3);letter-spacing:0.6px;text-transform:uppercase;margin-bottom:7px}
+.field-input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:9px;font-size:14px;font-family:var(--font-sans);outline:none;transition:border-color 0.2s;resize:none}
+.field-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(232,255,90,0.08)}
+.field-input::placeholder{color:var(--text3)}
+.modal-submit{width:100%;background:var(--accent);border:none;color:#0a0a0c;padding:12px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font-sans);margin-top:6px;transition:all 0.2s}
+.modal-submit:hover{background:#d9ee4a}
+.modal-submit:disabled{opacity:0.5;cursor:not-allowed}
+.modal-footer-text{text-align:center;font-size:12px;color:var(--text3);margin-top:16px}
+.modal-footer-text a{color:var(--accent);cursor:pointer;text-decoration:none}
+.modal-footer-text a:hover{text-decoration:underline}
+.divider{display:flex;align-items:center;gap:12px;margin:18px 0;font-size:12px;color:var(--text3)}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.error-msg{background:rgba(255,90,122,0.1);border:1px solid rgba(255,90,122,0.2);color:var(--wrong);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;display:none}
+.error-msg.show{display:block}
+.success-msg{background:rgba(90,240,232,0.1);border:1px solid rgba(90,240,232,0.2);color:var(--accent2);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;display:none}
+.success-msg.show{display:block}
+
+/* ── RESPONSIVE ── */
+@media(max-width:640px){
+  nav{padding:0 20px}
+  .page{padding:32px 16px 60px}
+  .result-top{grid-template-columns:1fr 1fr}
+  .charts-row{grid-template-columns:1fr}
+  .nav-center{display:none}
+  .typing-box{padding:24px 20px}
+  .words-track{font-size:17px}
+  .practice-grid{grid-template-columns:1fr}
+  .profile-stats-grid{grid-template-columns:1fr 1fr}
+  .lb-header,.lb-row{grid-template-columns:50px 1fr 90px 90px}
+  .lb-header span:last-child,.lb-row .lb-tests{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+  <div class="logo" onclick="showPage('test')">
+    Swift<span class="logo-accent">Keys</span><span class="logo-dot"></span>
+  </div>
+  <div class="nav-center">
+    <button class="nav-link active" id="nav-test" onclick="showPage('test')">test</button>
+    <button class="nav-link" id="nav-practice" onclick="showPage('practice')">practice</button>
+    <button class="nav-link" id="nav-leaderboard" onclick="showPage('leaderboard')">leaderboard</button>
+    <button class="nav-link" id="nav-profile" onclick="showPage('profile')">profile</button>
+  </div>
+  <div class="nav-right" id="navRight">
+    <button class="btn-ghost" onclick="openModal('login')">log in</button>
+    <button class="btn-primary" onclick="openModal('signup')">sign up</button>
+  </div>
+</nav>
+
+<!-- ══════════════ PAGE: TEST ══════════════ -->
+<div class="page active" id="page-test">
+  <div class="mode-bar">
+    <button class="mode-chip" id="chip-punct" onclick="setMode('punctuation',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      punctuation
+    </button>
+    <button class="mode-chip" id="chip-num" onclick="setMode('numbers',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+      numbers
+    </button>
+    <div class="mode-separator"></div>
+    <button class="mode-chip time-chip" onclick="setTime(15,this)">15</button>
+    <button class="mode-chip time-chip" onclick="setTime(30,this)">30</button>
+    <button class="mode-chip time-chip active" onclick="setTime(60,this)">60</button>
+    <button class="mode-chip time-chip" onclick="setTime(120,this)">120</button>
+  </div>
+
+  <div id="testSection">
+    <div class="live-stats">
+      <div class="live-stat"><div class="live-val neutral" id="wpmLive">–</div><div class="live-lbl">wpm</div></div>
+      <div class="live-stat"><div class="live-val neutral" id="accLive">–</div><div class="live-lbl">acc</div></div>
+      <div class="live-stat live-stat-timer"><div class="live-val" id="timerLive">60</div><div class="live-lbl">sec</div></div>
+    </div>
+
+    <div class="typing-box" id="typingBox" onclick="focusInput()">
+      <div class="words-viewport">
+        <div class="words-track" id="wordsTrack"></div>
+      </div>
+      <input type="text" class="hidden-input" id="hiddenInput" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+    </div>
+    <div class="hints">
+      <span class="hint-text"><kbd>Tab</kbd> + <kbd>Enter</kbd> restart</span>
+      <span class="hint-text">click box to focus</span>
+    </div>
+  </div>
+
+  <div class="results" id="resultsSection">
+    <div class="result-top">
+      <div class="result-card accent"><div class="rc-label">wpm</div><div class="rc-value" id="r-wpm">0</div><div class="rc-sub">words per minute</div></div>
+      <div class="result-card accent2"><div class="rc-label">accuracy</div><div class="rc-value" id="r-acc">0%</div><div class="rc-sub">correct keystrokes</div></div>
+      <div class="result-card"><div class="rc-label">raw wpm</div><div class="rc-value" id="r-raw">0</div><div class="rc-sub">unfiltered</div></div>
+      <div class="result-card"><div class="rc-label">errors</div><div class="rc-value" id="r-err">0</div><div class="rc-sub">mistakes made</div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-header"><span class="chart-title-text">wpm over time</span><span class="chart-badge wpm" id="wpmBadge">0 wpm</span></div>
+        <div class="chart-wrap"><canvas id="wpmChart" role="img" aria-label="WPM over time">WPM chart.</canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><span class="chart-title-text">accuracy over time</span><span class="chart-badge acc" id="accBadge">0%</span></div>
+        <div class="chart-wrap"><canvas id="accChart" role="img" aria-label="Accuracy over time">Accuracy chart.</canvas></div>
+      </div>
+    </div>
+    <div class="results-footer">
+      <div class="result-meta">
+        <span class="meta-item">mode: <strong id="r-mode">time 60</strong></span>
+        <span class="meta-item">chars: <strong id="r-chars">–</strong></span>
+        <span class="meta-item">consistency: <strong id="r-consistency">–</strong></span>
+      </div>
+      <button class="btn-restart" onclick="resetTest()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.68"/></svg>
+        try again
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ PAGE: PRACTICE ══════════════ -->
+<div class="page" id="page-practice">
+  <div class="page-title">practice</div>
+  <div class="page-sub">focused drills to improve your weaknesses</div>
+
+  <div class="practice-grid">
+    <div class="practice-card selected" id="pc-common" onclick="selectPractice('common',this)">
+      <div class="pc-icon">📝</div>
+      <div class="pc-title">common words</div>
+      <div class="pc-desc">Master the 200 most frequently used English words</div>
+      <span class="pc-badge easy">easy</span>
+    </div>
+    <div class="practice-card" id="pc-speed" onclick="selectPractice('speed',this)">
+      <div class="pc-icon">⚡</div>
+      <div class="pc-title">speed burst</div>
+      <div class="pc-desc">Short explosive 10-second bursts to build raw speed</div>
+      <span class="pc-badge medium">medium</span>
+    </div>
+    <div class="practice-card" id="pc-accuracy" onclick="selectPractice('accuracy',this)">
+      <div class="pc-icon">🎯</div>
+      <div class="pc-title">accuracy drill</div>
+      <div class="pc-desc">Longer words and tricky letter combos for precision</div>
+      <span class="pc-badge hard">hard</span>
+    </div>
+    <div class="practice-card" id="pc-code" onclick="selectPractice('code',this)">
+      <div class="pc-icon">💻</div>
+      <div class="pc-title">code typing</div>
+      <div class="pc-desc">Practice symbols, brackets and developer keywords</div>
+      <span class="pc-badge hard">hard</span>
+    </div>
+    <div class="practice-card" id="pc-numbers" onclick="selectPractice('numbers',this)">
+      <div class="pc-icon">🔢</div>
+      <div class="pc-title">numbers</div>
+      <div class="pc-desc">Numeric sequences and mixed number-word typing</div>
+      <span class="pc-badge medium">medium</span>
+    </div>
+    <div class="practice-card" id="pc-quotes" onclick="selectPractice('quotes',this)">
+      <div class="pc-icon">💬</div>
+      <div class="pc-title">quotes</div>
+      <div class="pc-desc">Famous quotes with punctuation and capitalization</div>
+      <span class="pc-badge medium">medium</span>
+    </div>
+  </div>
+
+  <div class="practice-box">
+    <div class="practice-prompt" id="practicePrompt">Type the text below:</div>
+    <div id="practiceParagraph" style="font-family:var(--font-mono);font-size:17px;line-height:1.8;color:var(--text3);margin-bottom:20px;padding:16px;background:var(--bg);border-radius:8px;letter-spacing:0.02em"></div>
+    <textarea class="practice-input" id="practiceInput" rows="3" placeholder="start typing here..." oninput="checkPractice()" onkeydown="practiceKeyDown(event)"></textarea>
+  </div>
+
+  <div class="practice-stats-row">
+    <div class="pstat"><div class="pstat-val" id="p-wpm">0</div><div class="pstat-lbl">wpm</div></div>
+    <div class="pstat"><div class="pstat-val" id="p-acc" style="color:var(--accent2)">100%</div><div class="pstat-lbl">accuracy</div></div>
+    <div class="pstat"><div class="pstat-val" id="p-chars" style="color:var(--text2)">0</div><div class="pstat-lbl">chars</div></div>
+    <div class="pstat"><div class="pstat-val" id="p-errors" style="color:var(--wrong)">0</div><div class="pstat-lbl">errors</div></div>
+    <button class="btn-restart" style="margin-left:auto" onclick="newPracticeRound()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.68"/></svg>
+      new round
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════ PAGE: LEADERBOARD ══════════════ -->
+<div class="page" id="page-leaderboard">
+  <div class="page-title">leaderboard</div>
+  <div class="page-sub">top typists worldwide — updated in real time</div>
+
+  <div class="lb-filters">
+    <button class="lb-filter active" onclick="loadLeaderboard('all',this)">all time</button>
+    <button class="lb-filter" onclick="loadLeaderboard('week',this)">this week</button>
+    <button class="lb-filter" onclick="loadLeaderboard('today',this)">today</button>
+    <div class="mode-separator" style="margin:0 4px"></div>
+    <button class="lb-filter active" id="lbf-60" onclick="filterLbTime(60,this)">60s</button>
+    <button class="lb-filter" id="lbf-30" onclick="filterLbTime(30,this)">30s</button>
+    <button class="lb-filter" id="lbf-15" onclick="filterLbTime(15,this)">15s</button>
+  </div>
+
+  <div class="lb-table" id="lbTable">
+    <div class="lb-header">
+      <span>#</span><span>user</span><span>wpm</span><span>accuracy</span><span>tests</span>
+    </div>
+    <div id="lbBody">
+      <div class="lb-empty">loading leaderboard...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ PAGE: PROFILE ══════════════ -->
+<div class="page" id="page-profile">
+  <div id="profileLoggedOut" class="no-auth-banner" style="display:none">
+    <div style="font-size:48px;margin-bottom:16px">👤</div>
+    <h3>sign in to view your profile</h3>
+    <p>track your progress, history and stats across sessions</p>
+    <button class="btn-primary" onclick="openModal('login')" style="padding:10px 28px;font-size:14px">log in</button>
+  </div>
+  <div id="profileLoggedIn">
+    <div class="profile-header">
+      <div class="profile-avatar-big" id="profAvatar">?</div>
+      <div class="profile-info">
+        <div class="profile-name" id="profName">—</div>
+        <div class="profile-email" id="profEmail">—</div>
+        <div class="profile-joined" id="profJoined"></div>
+        <div class="profile-badges" id="profBadges"></div>
+      </div>
+      <button class="logout-btn-big" onclick="logoutUser()">sign out</button>
+    </div>
+
+    <div class="profile-stats-grid">
+      <div class="profile-stat-card"><div class="psc-val" id="prof-tests">0</div><div class="psc-lbl">tests taken</div></div>
+      <div class="profile-stat-card"><div class="psc-val" id="prof-best">0</div><div class="psc-lbl">best wpm</div></div>
+      <div class="profile-stat-card"><div class="psc-val" id="prof-avg" style="color:var(--accent2)">0</div><div class="psc-lbl">avg wpm</div></div>
+      <div class="profile-stat-card"><div class="psc-val" id="prof-acc" style="color:var(--accent2)">0%</div><div class="psc-lbl">avg accuracy</div></div>
+    </div>
+
+    <div class="profile-chart-card">
+      <div class="chart-header" style="margin-bottom:16px">
+        <span class="chart-title-text">wpm over last 10 tests</span>
+        <span class="chart-badge wpm" id="profWpmBadge">–</span>
+      </div>
+      <div class="chart-wrap" style="height:160px">
+        <canvas id="profileChart" role="img" aria-label="Profile WPM history">WPM history.</canvas>
+      </div>
+    </div>
+
+    <div class="history-section">
+      <div class="section-header">
+        <span class="section-title">test history</span>
+        <span style="font-size:12px;color:var(--text3)" id="historyCount">0 tests</span>
+      </div>
+      <div class="lb-header" style="grid-template-columns:1fr 100px 100px 80px 140px">
+        <span>mode</span><span>wpm</span><span>accuracy</span><span>errors</span><span>date</span>
+      </div>
+      <div id="historyBody"><div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">no tests yet — complete a test to see history</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="overlayClick(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-logo">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      SwiftKeys
+    </div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" id="tabLogin" onclick="switchTab('login')">log in</button>
+      <button class="modal-tab" id="tabSignup" onclick="switchTab('signup')">sign up</button>
+    </div>
+
+    <div id="formLogin">
+      <div class="error-msg" id="loginError"></div>
+      <div class="field-group"><label class="field-label">email</label><input type="email" class="field-input" id="loginEmail" placeholder="you@example.com"></div>
+      <div class="field-group"><label class="field-label">password</label><input type="password" class="field-input" id="loginPass" placeholder="••••••••"></div>
+      <button class="modal-submit" id="loginBtn" onclick="doLogin()">log in</button>
+      <div class="modal-footer-text">no account? <a onclick="switchTab('signup')">sign up free</a></div>
+    </div>
+
+    <div id="formSignup" style="display:none">
+      <div class="error-msg" id="signupError"></div>
+      <div class="success-msg" id="signupSuccess"></div>
+      <div class="field-group"><label class="field-label">username</label><input type="text" class="field-input" id="signupUser" placeholder="speedtyper_99"></div>
+      <div class="field-group"><label class="field-label">email</label><input type="email" class="field-input" id="signupEmail" placeholder="you@example.com"></div>
+      <div class="field-group"><label class="field-label">password</label><input type="password" class="field-input" id="signupPass" placeholder="min 6 characters"></div>
+      <button class="modal-submit" id="signupBtn" onclick="doSignup()">create account</button>
+      <div class="modal-footer-text">have an account? <a onclick="switchTab('login')">log in</a></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  FIREBASE CONFIG — replace with your own
+// ══════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyDEMO_REPLACE_WITH_YOUR_KEY",
+  authDomain: "swiftkeys-demo.firebaseapp.com",
+  projectId: "swiftkeys-demo",
+  storageBucket: "swiftkeys-demo.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "1:000000000000:web:0000000000000000"
+};
+
+// Init Firebase
+let db, auth, currentUser = null;
+let firebaseReady = false;
+
+try {
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.firestore();
+  firebaseReady = true;
+} catch(e) {
+  console.warn('Firebase not configured. Running in demo mode.');
+}
+
+// ══════════════════════════════════════════
+//  WORD BANKS
+// ══════════════════════════════════════════
+const WORDS = ['the','be','to','of','and','a','in','that','have','it','for','not','on','with','he','as','you','do','at','this','but','his','by','from','they','we','say','her','she','or','an','will','my','one','all','would','there','their','what','so','up','out','if','about','who','get','which','go','me','when','make','can','like','time','no','just','him','know','take','people','into','year','your','good','some','could','them','see','other','than','then','now','look','only','come','its','over','think','also','back','after','use','two','how','our','work','first','well','way','even','new','want','because','any','these','give','day','most','us','great','between','need','large','often','hand','high','place','hold','turn','here','why','help','put','different','away','again','off','always','those','both','little','being','under','never','few','long','down','find','name','light','every','still','own','around','move','learn','try','keep','world','real','same','another','show','follow','form','small','set','end','does','big','came','three','state','become','really','something','much','family','leave','mean','let','begin','seem','country','talk','where','start','might','hear','play','run','call','through','each','last','school','went','kind','feel','land','side','young','soon','body','grow','took','carry','four','next','together','white','children','got','walk','example','ease','paper','group','music','important','until','feet','car','mile','night','sea'];
+
+const WORDS_HARD = ['responsibility','entrepreneurship','contemporary','infrastructure','phenomenon','extraordinary','approximately','simultaneously','circumstance','implementation','acknowledge','representative','significance','sophisticated','predominantly','communicate','understanding','professional','particularly','demonstrate'];
+
+const NUMS = ['1','2','3','4','5','6','7','8','9','10','15','20','25','30','42','50','64','100','128','256','512','1000','2024','3.14','99','7','11','13','1024','2048'];
+
+const PUNCT = [',','.','!','?',';',':'];
+
+const CODE_WORDS = ['const','let','var','function','return','if','else','for','while','class','import','export','async','await','try','catch','new','this','null','true','false','undefined','console.log','===','!==','>=','<=','()=>','{','}','[',']','(',')',';'];
+
+const QUOTES = [
+  "The only way to do great work is to love what you do.",
+  "In the middle of every difficulty lies opportunity.",
+  "It does not matter how slowly you go as long as you do not stop.",
+  "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+  "The future belongs to those who believe in the beauty of their dreams."
+];
+
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let words=[], currentWord=0, currentChar=0;
+let totalTime=60, timeLeft=60;
+let timerInterval=null, started=false, finished=false;
+let correctChars=0, totalTyped=0, wrongChars=0, extraErrors=0;
+let wpmHistory=[], accHistory=[], timePoints=[];
+let caretTimer=null, usePunctuation=false, useNumbers=false;
+let wpmChartInst=null, accChartInst=null, profileChartInst=null;
+let lbTimeFilter=60, testHistory=[];
+
+// ══════════════════════════════════════════
+//  NAV
+// ══════════════════════════════════════════
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+
+  if (name === 'leaderboard') loadLeaderboard('all', null);
+  if (name === 'profile') renderProfile();
+  if (name === 'practice') initPractice();
+  if (name === 'test') setTimeout(focusInput, 100);
+}
+
+// ══════════════════════════════════════════
+//  TYPING ENGINE
+// ══════════════════════════════════════════
+function genWords(n=100) {
+  let pool = [...WORDS];
+  if (useNumbers) pool = pool.concat(NUMS);
+  let result = [];
+  for (let i=0;i<n;i++) {
+    let w = pool[Math.floor(Math.random()*pool.length)];
+    if (usePunctuation && Math.random()<0.15) w += PUNCT[Math.floor(Math.random()*PUNCT.length)];
+    result.push(w);
+  }
+  return result;
+}
+
+function renderWords() {
+  const track = document.getElementById('wordsTrack');
+  track.innerHTML = '';
+  track.style.marginTop = '0';
+  words.forEach((w, wi) => {
+    const wEl = document.createElement('span');
+    wEl.className = 'word'; wEl.id = 'w-'+wi;
+    w.split('').forEach((ch,ci) => {
+      const l = document.createElement('span');
+      l.className='letter'; l.id=`l-${wi}-${ci}`; l.textContent=ch;
+      wEl.appendChild(l);
+    });
+    track.appendChild(wEl);
+    if (wi<words.length-1) track.appendChild(document.createTextNode(' '));
+  });
+  placeCaret();
+}
+
+function placeCaret() {
+  document.querySelectorAll('.caret').forEach(c=>c.remove());
+  const wEl = document.getElementById('w-'+currentWord);
+  if (!wEl) return;
+  const caret = document.createElement('span');
+  caret.className='caret'; caret.id='caret';
+  const letters = wEl.querySelectorAll('.letter,.extra');
+  if (currentChar < letters.length) wEl.insertBefore(caret, letters[currentChar]);
+  else wEl.appendChild(caret);
+  const track = document.getElementById('wordsTrack');
+  const lineH = parseFloat(getComputedStyle(track).lineHeight) || 37;
+  if (wEl.offsetTop > lineH*1.2) track.style.marginTop = `-${wEl.offsetTop - lineH*0.3}px`;
+}
+
+const inp = document.getElementById('hiddenInput');
+inp.addEventListener('keydown', e => {
+  if (finished) return;
+  if (e.key==='Tab') { e.preventDefault(); return; }
+  if (e.key==='Backspace') {
+    e.preventDefault();
+    if (e.ctrlKey||e.metaKey) { while(currentChar>0) removeLastChar(); }
+    else removeLastChar();
+    placeCaret(); flashCaret(); return;
+  }
+});
+inp.addEventListener('input', e => {
+  if (finished) return;
+  const val=inp.value; inp.value='';
+  if (!val) return;
+  const ch=val[val.length-1];
+  if (ch===' ') { if(currentWord<words.length&&currentChar>0) advanceWord(); flashCaret(); return; }
+  if (!started) startTest();
+  typeLetter(ch); flashCaret();
+});
+
+function typeLetter(ch) {
+  const word = words[currentWord]; if(!word) return;
+  if (currentChar < word.length) {
+    const correct = ch===word[currentChar];
+    const l = document.getElementById(`l-${currentWord}-${currentChar}`);
+    if (l) l.className = 'letter '+(correct?'correct':'wrong');
+    if (correct) correctChars++; else wrongChars++;
+    totalTyped++; currentChar++;
+  } else {
+    const wEl = document.getElementById('w-'+currentWord);
+    if (wEl && currentChar < word.length+8) {
+      const ex = document.createElement('span');
+      ex.className='letter extra'; ex.textContent=ch;
+      const c = document.getElementById('caret');
+      if(c) wEl.insertBefore(ex,c); else wEl.appendChild(ex);
+      extraErrors++; wrongChars++; totalTyped++; currentChar++;
+    }
+  }
+  placeCaret();
+}
+
+function removeLastChar() {
+  if (currentChar===0) return;
+  currentChar--;
+  const wEl = document.getElementById('w-'+currentWord);
+  if (!wEl) return;
+  const extras = wEl.querySelectorAll('.extra');
+  if (extras.length>0 && currentChar>=words[currentWord].length) { extras[extras.length-1].remove(); return; }
+  const l = document.getElementById(`l-${currentWord}-${currentChar}`);
+  if (l) { l.className='letter'; if(correctChars>0) correctChars--; totalTyped=Math.max(0,totalTyped-1); }
+}
+
+function advanceWord() {
+  const word = words[currentWord];
+  for (let i=currentChar;i<word.length;i++) {
+    const l = document.getElementById(`l-${currentWord}-${i}`);
+    if(l) l.className='letter wrong';
+    wrongChars++; totalTyped++;
+  }
+  const wEl = document.getElementById('w-'+currentWord);
+  if (wEl && currentChar<word.length) wEl.classList.add('wrong-word');
+  currentWord++; currentChar=0;
+  if (currentWord>=words.length) { finishTest(); return; }
+  placeCaret();
+}
+
+function startTest() {
+  started=true;
+  document.getElementById('typingBox').classList.add('focused');
+  timerInterval = setInterval(tick, 1000);
+}
+
+function tick() {
+  timeLeft = Math.max(0, timeLeft-1);
+  const elapsed = totalTime-timeLeft;
+  const rawWpm = elapsed>0 ? Math.round((totalTyped/5)/(elapsed/60)) : 0;
+  const acc = totalTyped>0 ? Math.round((correctChars/totalTyped)*100) : 100;
+  wpmHistory.push(rawWpm); accHistory.push(acc); timePoints.push(elapsed);
+  document.getElementById('wpmLive').textContent = rawWpm;
+  document.getElementById('wpmLive').className = 'live-val';
+  document.getElementById('accLive').textContent = acc+'%';
+  document.getElementById('accLive').className = 'live-val';
+  const t = document.getElementById('timerLive');
+  t.textContent = timeLeft;
+  t.className = 'live-val'+(timeLeft<=5?' danger':'');
+  if (timeLeft<=0) finishTest();
+}
+
+async function finishTest() {
+  if (finished) return;
+  finished=true;
+  clearInterval(timerInterval);
+  inp.blur();
+  document.getElementById('typingBox').classList.remove('focused');
+  document.getElementById('typingBox').classList.add('finished');
+
+  const elapsed = totalTime;
+  const netWpm = Math.round((correctChars/5)/(elapsed/60));
+  const rawWpm = Math.round((totalTyped/5)/(elapsed/60));
+  const acc = totalTyped>0 ? Math.round((correctChars/totalTyped)*100) : 0;
+  const errors = wrongChars+extraErrors;
+
+  let consistency = '–';
+  if (wpmHistory.length>2) {
+    const avg = wpmHistory.reduce((a,b)=>a+b,0)/wpmHistory.length;
+    const variance = wpmHistory.reduce((a,b)=>a+Math.pow(b-avg,2),0)/wpmHistory.length;
+    const std = Math.sqrt(variance);
+    const cv = avg>0 ? Math.round((1-std/avg)*100) : 0;
+    consistency = Math.max(0,cv)+'%';
+  }
+
+  document.getElementById('r-wpm').textContent = netWpm;
+  document.getElementById('r-acc').textContent = acc+'%';
+  document.getElementById('r-raw').textContent = rawWpm;
+  document.getElementById('r-err').textContent = errors;
+  document.getElementById('r-mode').textContent = 'time '+totalTime;
+  document.getElementById('r-chars').textContent = correctChars+'/'+wrongChars+'/'+extraErrors+'/'+totalTyped;
+  document.getElementById('r-consistency').textContent = consistency;
+  document.getElementById('wpmBadge').textContent = netWpm+' wpm';
+  document.getElementById('accBadge').textContent = acc+'%';
+
+  document.getElementById('testSection').style.display='none';
+  document.getElementById('resultsSection').classList.add('visible');
+  drawCharts();
+
+  // Save to Firestore + local
+  const result = { wpm:netWpm, rawWpm, acc, errors, time:totalTime, timestamp: Date.now(), date: new Date().toLocaleDateString() };
+  testHistory.unshift(result);
+  localStorage.setItem('sk_history', JSON.stringify(testHistory.slice(0,50)));
+
+  if (firebaseReady && currentUser && netWpm > 0) {
+    try {
+      const uid = currentUser.uid;
+      const uname = currentUser.displayName || currentUser.email.split('@')[0];
+      // Save to user history
+      await db.collection('users').doc(uid).collection('results').add({...result, uid, username:uname});
+      // Update leaderboard
+      const lbRef = db.collection('leaderboard').doc(uid+'_'+totalTime);
+      const lbSnap = await lbRef.get();
+      if (!lbSnap.exists || lbSnap.data().wpm < netWpm) {
+        await lbRef.set({ uid, username:uname, wpm:netWpm, acc, time:totalTime, timestamp:Date.now() });
+      }
+      // Update user stats doc
+      const statsRef = db.collection('users').doc(uid);
+      const statsSnap = await statsRef.get();
+      const old = statsSnap.exists ? statsSnap.data() : {tests:0,bestWpm:0,totalWpm:0,totalAcc:0};
+      await statsRef.set({
+        username: uname,
+        email: currentUser.email,
+        tests: (old.tests||0)+1,
+        bestWpm: Math.max(old.bestWpm||0, netWpm),
+        totalWpm: (old.totalWpm||0)+netWpm,
+        totalAcc: (old.totalAcc||0)+acc,
+        joined: old.joined || new Date().toLocaleDateString()
+      }, {merge:true});
+    } catch(e) { console.warn('Firestore save failed:', e.message); }
+  }
+}
+
+function drawCharts() {
+  if(wpmChartInst){wpmChartInst.destroy();wpmChartInst=null}
+  if(accChartInst){accChartInst.destroy();accChartInst=null}
+  const labels=timePoints.map(t=>t+'s');
+  const grid='rgba(255,255,255,0.05)', tick='rgba(255,255,255,0.25)';
+  const base={responsive:true,maintainAspectRatio:false,animation:{duration:500,easing:'easeOutQuart'},plugins:{legend:{display:false},tooltip:{backgroundColor:'#1c1c22',borderColor:'#2c2c38',borderWidth:1,titleColor:'#f0f0f5',bodyColor:'#9090a8',padding:10,cornerRadius:8}},scales:{x:{grid:{color:grid},ticks:{color:tick,font:{size:10,family:'Space Mono'},maxTicksLimit:8}},y:{grid:{color:grid},ticks:{color:tick,font:{size:10,family:'Space Mono'}},beginAtZero:true}}};
+  wpmChartInst=new Chart(document.getElementById('wpmChart'),{type:'line',data:{labels,datasets:[{label:'WPM',data:wpmHistory,borderColor:'#e8ff5a',backgroundColor:ctx=>{const g=ctx.chart.ctx.createLinearGradient(0,0,0,170);g.addColorStop(0,'rgba(232,255,90,0.18)');g.addColorStop(1,'rgba(232,255,90,0)');return g},borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#e8ff5a',pointBorderColor:'#0d0d0f',pointBorderWidth:1.5,tension:0.4,fill:true}]},options:{...base}});
+  accChartInst=new Chart(document.getElementById('accChart'),{type:'line',data:{labels,datasets:[{label:'Acc',data:accHistory,borderColor:'#5af0e8',backgroundColor:ctx=>{const g=ctx.chart.ctx.createLinearGradient(0,0,0,170);g.addColorStop(0,'rgba(90,240,232,0.15)');g.addColorStop(1,'rgba(90,240,232,0)');return g},borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#5af0e8',pointBorderColor:'#0d0d0f',pointBorderWidth:1.5,tension:0.4,fill:true}]},options:{...base,scales:{...base.scales,y:{...base.scales.y,min:0,max:100,ticks:{...base.scales.y.ticks,callback:v=>v+'%'}}}}});
+}
+
+function resetTest() {
+  clearInterval(timerInterval);
+  started=false;finished=false;currentWord=0;currentChar=0;
+  correctChars=0;wrongChars=0;extraErrors=0;totalTyped=0;
+  wpmHistory=[];accHistory=[];timePoints=[];timeLeft=totalTime;
+  document.getElementById('timerLive').textContent=totalTime;
+  document.getElementById('timerLive').className='live-val';
+  document.getElementById('wpmLive').textContent='–';document.getElementById('wpmLive').className='live-val neutral';
+  document.getElementById('accLive').textContent='–';document.getElementById('accLive').className='live-val neutral';
+  document.getElementById('testSection').style.display='block';
+  document.getElementById('resultsSection').classList.remove('visible');
+  document.getElementById('typingBox').classList.remove('focused','finished');
+  document.getElementById('wordsTrack').style.marginTop='0';
+  words=genWords(100);renderWords();setTimeout(focusInput,80);
+}
+
+function setTime(t,btn) {
+  totalTime=t;timeLeft=t;
+  document.querySelectorAll('.time-chip').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  resetTest();
+}
+
+function setMode(mode,btn) {
+  if(mode==='punctuation'){usePunctuation=!usePunctuation;btn.classList.toggle('active',usePunctuation);}
+  else if(mode==='numbers'){useNumbers=!useNumbers;btn.classList.toggle('active',useNumbers);}
+  resetTest();
+}
+
+function focusInput(){inp.focus();document.getElementById('typingBox').classList.add('focused')}
+inp.addEventListener('blur',()=>{if(!started)document.getElementById('typingBox').classList.remove('focused')});
+
+function flashCaret() {
+  const c=document.getElementById('caret');if(c)c.classList.add('typing');
+  clearTimeout(caretTimer);
+  caretTimer=setTimeout(()=>{const c2=document.getElementById('caret');if(c2)c2.classList.remove('typing')},500);
+}
+
+let tabDown=false;
+document.addEventListener('keydown',e=>{
+  if(e.key==='Tab'){tabDown=true;e.preventDefault()}
+  if(e.key==='Enter'&&tabDown){resetTest()}
+  if(e.key==='Escape')closeModal();
+});
+document.addEventListener('keyup',e=>{if(e.key==='Tab')tabDown=false});
+
+// ══════════════════════════════════════════
+//  PRACTICE PAGE
+// ══════════════════════════════════════════
+let practiceMode='common', practiceText='', practiceStart=null, practiceCorrect=0, practiceTotal=0;
+
+const PRACTICE_POOLS = {
+  common: WORDS,
+  speed: WORDS.filter(w=>w.length<=4),
+  accuracy: WORDS_HARD,
+  code: CODE_WORDS,
+  numbers: NUMS,
+  quotes: QUOTES
+};
+
+function selectPractice(mode, btn) {
+  practiceMode=mode;
+  document.querySelectorAll('.practice-card').forEach(c=>c.classList.remove('selected'));
+  btn.classList.add('selected');
+  newPracticeRound();
+}
+
+function initPractice() { newPracticeRound(); }
+
+function newPracticeRound() {
+  const pool = PRACTICE_POOLS[practiceMode]||WORDS;
+  if (practiceMode==='quotes') {
+    practiceText = pool[Math.floor(Math.random()*pool.length)];
+  } else {
+    const n = practiceMode==='speed'?8:12;
+    practiceText = Array.from({length:n},()=>pool[Math.floor(Math.random()*pool.length)]).join(' ');
+  }
+  document.getElementById('practiceParagraph').textContent = practiceText;
+  document.getElementById('practiceInput').value='';
+  document.getElementById('practiceInput').style.borderColor='var(--border)';
+  practiceStart=null;practiceCorrect=0;practiceTotal=0;
+  document.getElementById('p-wpm').textContent='0';
+  document.getElementById('p-acc').textContent='100%';
+  document.getElementById('p-chars').textContent='0';
+  document.getElementById('p-errors').textContent='0';
+  document.getElementById('practiceInput').focus();
+}
+
+function practiceKeyDown(e) {
+  if (e.key==='Tab'){e.preventDefault();newPracticeRound();}
+}
+
+function checkPractice() {
+  if (!practiceStart) practiceStart = Date.now();
+  const typed = document.getElementById('practiceInput').value;
+  const target = practiceText;
+  let correct=0, errors=0;
+  for (let i=0;i<typed.length;i++) {
+    if (i<target.length) { if(typed[i]===target[i]) correct++; else errors++; }
+    else errors++;
+  }
+  practiceCorrect=correct; practiceTotal=typed.length;
+  const elapsed=(Date.now()-practiceStart)/1000/60;
+  const wpm = elapsed>0 ? Math.round((typed.length/5)/elapsed) : 0;
+  const acc = typed.length>0 ? Math.round((correct/typed.length)*100) : 100;
+  document.getElementById('p-wpm').textContent=wpm;
+  document.getElementById('p-acc').textContent=acc+'%';
+  document.getElementById('p-chars').textContent=typed.length;
+  document.getElementById('p-errors').textContent=errors;
+
+  const input=document.getElementById('practiceInput');
+  if (typed===target) {
+    input.style.borderColor='var(--correct)';
+    setTimeout(()=>newPracticeRound(),600);
+  } else if (target.startsWith(typed)) {
+    input.style.borderColor='var(--border)';
+  } else {
+    input.style.borderColor='var(--wrong)';
+  }
+}
+
+// ══════════════════════════════════════════
+//  LEADERBOARD
+// ══════════════════════════════════════════
+const DEMO_LB = [
+  {username:'keymaster',wpm:187,acc:98,tests:342,uid:'demo1'},
+  {username:'typequeen',wpm:165,acc:96,tests:201,uid:'demo2'},
+  {username:'flashfingers',wpm:154,acc:94,tests:89,uid:'demo3'},
+  {username:'speedster99',wpm:141,acc:92,tests:456,uid:'demo4'},
+  {username:'protypist',wpm:138,acc:97,tests:123,uid:'demo5'},
+  {username:'keyclicker',wpm:132,acc:91,tests:78,uid:'demo6'},
+  {username:'wordwizard',wpm:128,acc:95,tests:234,uid:'demo7'},
+  {username:'typemaster',wpm:121,acc:93,tests:67,uid:'demo8'},
+  {username:'rapidkeys',wpm:117,acc:89,tests:45,uid:'demo9'},
+  {username:'swifttyper',wpm:109,acc:90,tests:312,uid:'demo10'},
+];
+
+async function loadLeaderboard(period, btn) {
+  if(btn){document.querySelectorAll('.lb-filter').forEach(b=>b.classList.remove('active'));btn.classList.add('active')}
+  const body=document.getElementById('lbBody');
+  body.innerHTML='<div class="lb-empty">loading...</div>';
+
+  let data=[];
+  if (firebaseReady) {
+    try {
+      const snap=await db.collection('leaderboard').where('time','==',lbTimeFilter).orderBy('wpm','desc').limit(20).get();
+      data=snap.docs.map(d=>d.data());
+    } catch(e){ data=DEMO_LB; }
+  } else { data=DEMO_LB; }
+
+  if(!data.length){body.innerHTML='<div class="lb-empty">no results yet — be the first!</div>';return;}
+
+  const rankColors=['gold','silver','bronze'];
+  const avatarBgs=['#e8ff5a','#5af0e8','#ff5a7a','#b35af0','#5ab0f0','#f0a85a'];
+  body.innerHTML=data.map((r,i)=>{
+    const isMe=currentUser&&r.uid===currentUser.uid;
+    const rank=i+1;
+    const initials=(r.username||'??').slice(0,2).toUpperCase();
+    const bg=avatarBgs[i%avatarBgs.length];
+    const textCol=bg==='#e8ff5a'?'#0a0a0c':'#0a0a0c';
+    return `<div class="lb-row${isMe?' me':''}">
+      <span class="lb-rank${rank<=3?' '+rankColors[rank-1]:''}">${rank<=3?['🥇','🥈','🥉'][rank-1]:rank}</span>
+      <div class="lb-user">
+        <div class="lb-avatar" style="background:${bg};color:${textCol}">${initials}</div>
+        <span class="lb-uname">${r.username||'anon'}${isMe?'<span class="lb-you">you</span>':''}</span>
+      </div>
+      <span class="lb-wpm">${r.wpm}</span>
+      <span class="lb-acc">${r.acc}%</span>
+      <span class="lb-tests">${r.tests||1}</span>
+    </div>`;
+  }).join('');
+}
+
+function filterLbTime(t,btn) {
+  lbTimeFilter=t;
+  document.querySelectorAll('[id^="lbf-"]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  loadLeaderboard('all',null);
+}
+
+// ══════════════════════════════════════════
+//  PROFILE
+// ══════════════════════════════════════════
+function renderProfile() {
+  if (!currentUser) {
+    document.getElementById('profileLoggedOut').style.display='block';
+    document.getElementById('profileLoggedIn').style.display='none';
+    return;
+  }
+  document.getElementById('profileLoggedOut').style.display='none';
+  document.getElementById('profileLoggedIn').style.display='block';
+
+  const uname=currentUser.displayName||currentUser.email.split('@')[0];
+  const initials=uname.slice(0,2).toUpperCase();
+  document.getElementById('profAvatar').textContent=initials;
+  document.getElementById('profName').textContent=uname;
+  document.getElementById('profEmail').textContent=currentUser.email;
+
+  // Load history from local + Firestore
+  const hist=testHistory;
+  document.getElementById('historyCount').textContent=hist.length+' tests';
+
+  if(hist.length>0){
+    const best=Math.max(...hist.map(h=>h.wpm));
+    const avgWpm=Math.round(hist.reduce((a,h)=>a+h.wpm,0)/hist.length);
+    const avgAcc=Math.round(hist.reduce((a,h)=>a+h.acc,0)/hist.length);
+    document.getElementById('prof-tests').textContent=hist.length;
+    document.getElementById('prof-best').textContent=best;
+    document.getElementById('prof-avg').textContent=avgWpm;
+    document.getElementById('prof-acc').textContent=avgAcc+'%';
+    document.getElementById('profWpmBadge').textContent=best+' best';
+
+    // Badges
+    const badges=[];
+    if(best>=100) badges.push('<span class="badge gold">100+ wpm</span>');
+    if(best>=150) badges.push('<span class="badge gold">150+ wpm</span>');
+    if(hist.length>=10) badges.push('<span class="badge teal">10 tests</span>');
+    if(hist.length>=50) badges.push('<span class="badge teal">50 tests</span>');
+    if(avgAcc>=95) badges.push('<span class="badge green">sharpshooter</span>');
+    document.getElementById('profBadges').innerHTML=badges.join('');
+
+    // Profile chart
+    if(profileChartInst){profileChartInst.destroy();profileChartInst=null}
+    const last10=hist.slice(0,10).reverse();
+    profileChartInst=new Chart(document.getElementById('profileChart'),{
+      type:'line',
+      data:{labels:last10.map((_,i)=>'#'+(i+1)),datasets:[{label:'WPM',data:last10.map(h=>h.wpm),borderColor:'#e8ff5a',backgroundColor:ctx=>{const g=ctx.chart.ctx.createLinearGradient(0,0,0,160);g.addColorStop(0,'rgba(232,255,90,0.15)');g.addColorStop(1,'rgba(232,255,90,0)');return g},borderWidth:2,pointRadius:4,pointBackgroundColor:'#e8ff5a',pointBorderColor:'#0d0d0f',tension:0.4,fill:true}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'rgba(255,255,255,0.25)',font:{size:10,family:'Space Mono'}}},y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'rgba(255,255,255,0.25)',font:{size:10,family:'Space Mono'}},beginAtZero:true}}}
+    });
+
+    // History table
+    document.getElementById('historyBody').innerHTML=hist.slice(0,20).map(h=>`
+      <div class="history-row">
+        <span class="history-mode">time ${h.time}s</span>
+        <span class="history-wpm">${h.wpm}</span>
+        <span class="history-acc">${h.acc}%</span>
+        <span class="history-err">${h.errors}</span>
+        <span class="history-date">${h.date}</span>
+      </div>`).join('');
+  } else {
+    document.getElementById('prof-tests').textContent='0';
+    document.getElementById('prof-best').textContent='0';
+    document.getElementById('prof-avg').textContent='0';
+    document.getElementById('prof-acc').textContent='0%';
+    document.getElementById('historyBody').innerHTML='<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">no tests yet — complete a test to see history</div></div>';
+  }
+
+  // Load from Firestore if available
+  if(firebaseReady && currentUser){
+    db.collection('users').doc(currentUser.uid).get().then(snap=>{
+      if(snap.exists){
+        const d=snap.data();
+        document.getElementById('profJoined').textContent='joined '+d.joined;
+      }
+    }).catch(()=>{});
+  }
+}
+
+// ══════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════
+function openModal(tab){document.getElementById('overlay').classList.add('open');switchTab(tab)}
+function closeModal(){document.getElementById('overlay').classList.remove('open')}
+function overlayClick(e){if(e.target===document.getElementById('overlay'))closeModal()}
+function switchTab(tab){
+  document.getElementById('tabLogin').classList.toggle('active',tab==='login');
+  document.getElementById('tabSignup').classList.toggle('active',tab==='signup');
+  document.getElementById('formLogin').style.display=tab==='login'?'block':'none';
+  document.getElementById('formSignup').style.display=tab==='signup'?'block':'none';
+  document.getElementById('loginError').classList.remove('show');
+  document.getElementById('signupError').classList.remove('show');
+}
+
+async function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  const btn=document.getElementById('loginBtn');
+  const err=document.getElementById('loginError');
+  err.classList.remove('show');
+  if(!email||!pass){err.textContent='please fill all fields';err.classList.add('show');return}
+  btn.disabled=true;btn.textContent='logging in...';
+  if(!firebaseReady){
+    // Demo mode
+    simulateLogin(email);
+    btn.disabled=false;btn.textContent='log in';
+    closeModal();return;
+  }
+  try{
+    await auth.signInWithEmailAndPassword(email,pass);
+    closeModal();
+  }catch(e){
+    err.textContent=e.message.replace('Firebase: ','').replace(/\s*\(.*\)/,'');
+    err.classList.add('show');
+  }finally{btn.disabled=false;btn.textContent='log in'}
+}
+
+async function doSignup(){
+  const uname=document.getElementById('signupUser').value.trim();
+  const email=document.getElementById('signupEmail').value.trim();
+  const pass=document.getElementById('signupPass').value;
+  const btn=document.getElementById('signupBtn');
+  const err=document.getElementById('signupError');
+  const suc=document.getElementById('signupSuccess');
+  err.classList.remove('show');suc.classList.remove('show');
+  if(!uname||!email||!pass){err.textContent='please fill all fields';err.classList.add('show');return}
+  if(pass.length<6){err.textContent='password must be at least 6 characters';err.classList.add('show');return}
+  btn.disabled=true;btn.textContent='creating account...';
+  if(!firebaseReady){
+    simulateLogin(email,uname);
+    btn.disabled=false;btn.textContent='create account';
+    closeModal();return;
+  }
+  try{
+    const cred=await auth.createUserWithEmailAndPassword(email,pass);
+    await cred.user.updateProfile({displayName:uname});
+    await db.collection('users').doc(cred.user.uid).set({
+      username:uname,email,tests:0,bestWpm:0,totalWpm:0,totalAcc:0,joined:new Date().toLocaleDateString()
+    });
+    suc.textContent='account created! welcome, '+uname+'!';
+    suc.classList.add('show');
+    setTimeout(closeModal,1500);
+  }catch(e){
+    err.textContent=e.message.replace('Firebase: ','').replace(/\s*\(.*\)/,'');
+    err.classList.add('show');
+  }finally{btn.disabled=false;btn.textContent='create account'}
+}
+
+function simulateLogin(email,uname){
+  currentUser={uid:'demo_'+email,email,displayName:uname||email.split('@')[0]};
+  onUserChange(currentUser);
+}
+
+function logoutUser(){
+  if(firebaseReady&&auth.currentUser){auth.signOut();}
+  else{currentUser=null;onUserChange(null);}
+  showPage('test');
+}
+
+function onUserChange(user){
+  currentUser=user;
+  const navRight=document.getElementById('navRight');
+  if(user){
+    const uname=user.displayName||user.email.split('@')[0];
+    const initials=uname.slice(0,2).toUpperCase();
+    navRight.innerHTML=`
+      <div class="user-pill" onclick="showPage('profile')">
+        <div class="user-avatar">${initials}</div>
+        <span class="user-name">${uname}</span>
+      </div>
+      <button class="btn-logout" onclick="logoutUser()">sign out</button>`;
+  } else {
+    navRight.innerHTML=`<button class="btn-ghost" onclick="openModal('login')">log in</button><button class="btn-primary" onclick="openModal('signup')">sign up</button>`;
+  }
+}
+
+// Firebase auth listener
+if(firebaseReady){
+  auth.onAuthStateChanged(user => {
+    onUserChange(user);
+    if(user){
+      // Load Firestore history
+      db.collection('users').doc(user.uid).collection('results')
+        .orderBy('timestamp','desc').limit(50).get()
+        .then(snap=>{
+          if(!snap.empty){
+            testHistory=snap.docs.map(d=>d.data());
+            localStorage.setItem('sk_history',JSON.stringify(testHistory));
+          }
+        }).catch(()=>{});
+    }
+  });
+}
+
+// Load local history
+try{const h=localStorage.getItem('sk_history');if(h)testHistory=JSON.parse(h);}catch(e){}
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+words=genWords(100);
+renderWords();
+setTimeout(focusInput,100);
+</script>
+</body>
+</html>
